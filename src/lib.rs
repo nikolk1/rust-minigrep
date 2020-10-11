@@ -1,6 +1,9 @@
 use std::error::Error;
-use std::fs;
+use std::{fs, io, env};
+use std::io::Write;
 use std::path::Path;
+use std::str::FromStr;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 pub struct Config {
     pub command: String,
@@ -17,6 +20,7 @@ impl Config {
         let command = args[0].clone();
         let query = args[1].clone();
         let filename = args[2].clone();
+        let case_sensitive = true;
 
         if !path_exists(&filename) {
             return Err("File doesn't exist");
@@ -25,6 +29,7 @@ impl Config {
             command,
             query,
             filename,
+            case_sensitive,
         })
     }
 }
@@ -32,7 +37,7 @@ impl Config {
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let contents = fs::read_to_string(config.filename)?;
     for line in search(&config.query, &contents, config.case_sensitive) {
-        println!("{}", line);
+        highlight(&line, &config.query)?;
     }
     Ok(())
 }
@@ -51,6 +56,29 @@ pub fn search<'a>(query: &str, contents: &'a str, sensitive: bool) -> Vec<&'a st
 
 fn path_exists(path: &str) -> bool {
     Path::new(path).exists()
+}
+
+fn highlight(line: &str, word: &str) -> io::Result<()> {
+    //TODO: make the color enviroment variable
+    let mut stdout = StandardStream::stdout(ColorChoice::Always);
+    let color: Color = match env::var("COLOR") {
+        Ok(val) => Color::from_str(&val).unwrap_or(Color::Red),
+        Err(e) => Color::Red
+    };
+
+    let line_str = String::from(line);
+    let start = line.find(&word).expect("Couldn't find word in line");
+    let end = start + word.len();
+
+    stdout.reset()?;
+    write!(&mut stdout, "{}", &line_str[0..start]);
+
+    stdout.set_color(ColorSpec::new().set_fg(Some(color)))?;
+    write!(&mut stdout, "{}", &line_str[start..end])?;
+
+    stdout.reset()?;
+    writeln!(&mut stdout, "{}", &line_str[end..]);
+    Ok(())
 }
 
 #[cfg(test)]
