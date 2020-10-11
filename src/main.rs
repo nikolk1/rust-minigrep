@@ -15,14 +15,6 @@ fn main() {
     }
 }
 
-fn check_args(args: &Vec<String>) -> bool {
-    if args.len() != 3 {
-        usage();
-        return false;
-    }
-    true
-}
-
 fn usage() {
     println!("minigrep <pattern> <filname>")
 }
