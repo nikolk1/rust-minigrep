@@ -13,14 +13,26 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(args: &[String]) -> Result<Config, &'static str> {
+    pub fn new(mut args: env::Args) -> Result<Config, &'static str> {
         if args.len() < 3 {
             return Err("not enougth arguments");
         }
-        let command = args[0].clone();
-        let query = args[1].clone();
-        let filename = args[2].clone();
-        let case_sensitive = true;
+        let command = match args.next() {
+            Some(arg) => arg,
+            None => return Err("Didn't get a command string")
+        };
+        let query = match args.next() {
+            Some(arg) => arg,
+            None => return Err("Didn't get a query string"),
+        };
+        let filename = match args.next() {
+            Some(arg) => arg,
+            None => return Err("Didn't get a file name"),
+        };
+        let case_sensitive = match args.next() {
+            Some(arg) => arg.to_lowercase() == "-s",
+            None => false
+        };
 
         if !path_exists(&filename) {
             return Err("File doesn't exist");
@@ -43,15 +55,9 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
 }
 
 pub fn search<'a>(query: &str, contents: &'a str, sensitive: bool) -> Vec<&'a str> {
-    let mut results = Vec::new();
-    for line in contents.lines() {
-        if (!sensitive && line.to_lowercase().contains(&query.to_lowercase()))
-            || (sensitive && line.contains(&query))
-        {
-            results.push(line);
-        }
-    }
-    results
+    contents.lines()
+    .filter(|line| (!sensitive && line.to_lowercase().contains(&query.to_lowercase())) || (sensitive && line.contains(&query)))
+    .collect()
 }
 
 fn path_exists(path: &str) -> bool {
@@ -63,7 +69,7 @@ fn highlight(line: &str, word: &str) -> io::Result<()> {
     let mut stdout = StandardStream::stdout(ColorChoice::Always);
     let color: Color = match env::var("COLOR") {
         Ok(val) => Color::from_str(&val).unwrap_or(Color::Red),
-        Err(e) => Color::Red
+        Err(e) => Color::Blue
     };
 
     let line_str = String::from(line);
@@ -87,12 +93,6 @@ mod tests {
 
     #[test]
     fn valid_config() {}
-
-    #[test]
-    fn no_file() {}
-
-    #[test]
-    fn too_little_arguments() {}
 
     #[test]
     fn case_sensitive() {
